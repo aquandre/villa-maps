@@ -121,19 +121,24 @@
             }
           });
 
-          // Unclustered points (individual villas = gold dot)
+          // Unclustered points (individual villas = black dot)
           map.addLayer({
             id: 'unclustered-point',
             type: 'circle',
             source: 'villas',
             filter: ['!', ['has', 'point_count']],
             paint: {
-              'circle-color': '#FFD700',
+              'circle-color': '#000',
               'circle-radius': 8,
               'circle-stroke-width': 1,
-              'circle-stroke-color': '#000'
+              'circle-stroke-color': '#fff'
             }
           });
+
+          // Fit map to all villas
+          const bounds = new mapboxgl.LngLatBounds();
+          geojson.features.forEach(f => bounds.extend(f.geometry.coordinates));
+          if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 80 });
 
           // Show popup on villa click
           map.on('click', 'unclustered-point', e => {
