@@ -13,6 +13,9 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
+    /* ======================
+       Marker Styles
+       ====================== */
     .price-marker {
       display: inline-flex;
       align-items: center;
@@ -89,19 +92,26 @@
     }
 
     /* ======================
-       Load client-specific JSON
+       Load client-specific JSON from GitHub
        ====================== */
-    const dataFile = getQueryParam('data') || 'test.json'; // default to test.json
+    // Default raw URL for test JSON
+    const defaultDataFile = 'https://raw.githubusercontent.com/username/repo/branch/test.json';
+
+    // Use query param if provided
+    const dataFile = getQueryParam('data') || defaultDataFile;
+
     fetch(dataFile)
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
       .then(villas => {
         const bounds = new mapboxgl.LngLatBounds();
 
         villas.forEach(villa => {
           const el = document.createElement('div');
-          el.className = 'luxury-marker'; // use luxury marker
-          // el.className = 'price-marker'; // switch if you want price bubbles
-
+          el.className = 'luxury-marker'; // use luxury dot marker
+          // el.className = 'price-marker'; // uncomment to use price bubble markers
           if (el.className === 'price-marker') el.textContent = villa.price;
 
           const popupHTML = `
