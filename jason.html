@@ -13,46 +13,6 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
-    /* ======================
-       Marker Styles
-       ====================== */
-    .price-marker {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: #fff;
-      border: 1px solid rgba(0,0,0,0.25);
-      font: 600 13px/1.1 "Helvetica Neue", Helvetica, Arial, sans-serif;
-      color: #111;
-      letter-spacing: 0.2px;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.15);
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-      transform: translateY(-4px);
-    }
-    .price-marker:hover {
-      background: #111;
-      color: #fff;
-    }
-
-    .luxury-marker {
-      width: 14px;
-      height: 14px;
-      background: black;
-      border-radius: 50%;
-      border: 2px solid white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
-      cursor: pointer;
-      transform: translateY(-4px);
-    }
-    .luxury-marker:hover {
-      background: gold;
-      border-color: black;
-    }
-
     .mapboxgl-popup-content {
       background: black;
       color: white;
@@ -83,30 +43,17 @@
     });
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }));
 
-    /* ======================
-       HELPER: Get query param
-       ====================== */
+    // ======================
+    // Helper: get query param
+    // ======================
     function getQueryParam(name) {
       const params = new URLSearchParams(window.location.search);
       return params.get(name);
     }
 
-    /* ======================
-       HELPER: Normalize coords
-       ====================== */
-    function normalizeCoords(coords) {
-      if (Array.isArray(coords)) return coords;
-      try {
-        return JSON.parse(coords); // handle string like "[25.32, 37.46]"
-      } catch {
-        console.error("Invalid coords format:", coords);
-        return null;
-      }
-    }
-
-    /* ======================
-       Load client-specific JSON from GitHub
-       ====================== */
+    // ======================
+    // Load villa data (JSON from GitHub)
+    // ======================
     const defaultDataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/refs/heads/main/test.json';
     const dataFile = getQueryParam('data') || defaultDataFile;
 
@@ -116,40 +63,116 @@
         return response.json();
       })
       .then(villas => {
-        const bounds = new mapboxgl.LngLatBounds();
+        // Convert villa array into GeoJSON
+        const geojson = {
+          type: 'FeatureCollection',
+          features: villas.map(villa => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: villa.coords
+            },
+            properties: {
+              name: villa.name,
+              bedrooms: villa.bedrooms,
+              price: villa.price,
+              image: villa.image,
+              link: villa.link,
+              town: villa.town || ''
+            }
+          }))
+        };
 
-        villas.forEach(villa => {
-          const coords = normalizeCoords(villa.coords);
-          if (!coords) return; // skip if invalid
+        map.on('load', () => {
+          // Add source with clustering enabled
+          map.addSource('villas', {
+            type: 'geojson',
+            data: geojson,
+            cluster: true,
+            clusterMaxZoom: 14,
+            clusterRadius: 50
+          });
 
-          const el = document.createElement('div');
-          el.className = 'price-marker'; // use luxury dot marker
-          // el.className = 'price-marker'; // uncomment to use price bubble markers
-          if (el.className === 'price-marker') el.textContent = villa.price;
+          // Cluster circles (black)
+          map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'villas',
+            filter: ['has', 'point_count'],
+            paint: {
+              'circle-color': '#000',
+              'circle-radius': 18
+            }
+          });
 
-          const popupHTML = `
-            <div class="card">
-              <img src="${villa.image}" alt="${villa.name}" />
-              <h3>${villa.name} | ${villa.bedrooms} bedrooms</h3>
-              <p><strong>${villa.price}</strong> per night</p>
-              ${villa.town ? `<p>Near ${villa.town}</p>` : ''}
-              <a class="btn" href="${villa.link}" target="_blank" rel="noopener">View Villa</a>
-            </div>
-          `;
+          // Cluster text (white numbers)
+          map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'villas',
+            filter: ['has', 'point_count'],
+            layout: {
+              'text-field': '{point_count_abbreviated}',
+              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-size': 12
+            },
+            paint: {
+              'text-color': '#fff'
+            }
+          });
 
-          const popup = new mapboxgl.Popup({ offset: [0, -40] }).setHTML(popupHTML);
+          // Unclustered points (individual villas = gold dot)
+          map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'villas',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+              'circle-color': '#FFD700',
+              'circle-radius': 8,
+              'circle-stroke-width': 1,
+              'circle-stroke-color': '#000'
+            }
+          });
 
-          new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(coords)
-            .setPopup(popup)
-            .addTo(map);
+          // Show popup on villa click
+          map.on('click', 'unclustered-point', e => {
+            const props = e.features[0].properties;
+            const coords = e.features[0].geometry.coordinates;
 
-          bounds.extend(coords);
+            const popupHTML = `
+              <div class="card">
+                <img src="${props.image}" alt="${props.name}" />
+                <h3>${props.name} | ${props.bedrooms} bedrooms</h3>
+                <p><strong>${props.price}</strong> per night</p>
+                ${props.town ? `<p>Near ${props.town}</p>` : ''}
+                <a class="btn" href="${props.link}" target="_blank" rel="noopener">View Villa</a>
+              </div>
+            `;
+
+            new mapboxgl.Popup()
+              .setLngLat(coords)
+              .setHTML(popupHTML)
+              .addTo(map);
+          });
+
+          // Zoom into cluster on click
+          map.on('click', 'clusters', e => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            const clusterId = features[0].properties.cluster_id;
+            map.getSource('villas').getClusterExpansionZoom(clusterId, (err, zoom) => {
+              if (err) return;
+              map.easeTo({
+                center: features[0].geometry.coordinates,
+                zoom
+              });
+            });
+          });
+
+          // Change cursor for clusters
+          map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+          map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
         });
-
-        if (!bounds.isEmpty()) {
-          map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
-        }
       })
       .catch(err => {
         console.error('Error loading villa data:', err);
