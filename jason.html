@@ -43,19 +43,8 @@
     });
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }));
 
-    // ======================
-    // Helper: get query param
-    // ======================
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
-
-    // ======================
-    // Load villa data (JSON from GitHub)
-    // ======================
-    const defaultDataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/refs/heads/main/test.json';
-    const dataFile = getQueryParam('data') || defaultDataFile;
+    // JSON file hosted on GitHub
+    const dataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/main/test.json';
 
     fetch(dataFile)
       .then(response => {
@@ -63,37 +52,35 @@
         return response.json();
       })
       .then(villas => {
-        // Convert villa array into GeoJSON
-        const geojson = {
+        // Convert to GeoJSON
+        const villaGeoJSON = {
           type: 'FeatureCollection',
           features: villas.map(villa => ({
             type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: villa.coords
-            },
             properties: {
               name: villa.name,
               bedrooms: villa.bedrooms,
               price: villa.price,
               image: villa.image,
-              link: villa.link,
-              town: villa.town || ''
+              link: villa.link
+            },
+            geometry: {
+              type: 'Point',
+              coordinates: villa.coords // array of [lng, lat]
             }
           }))
         };
 
         map.on('load', () => {
-          // Add source with clustering enabled
           map.addSource('villas', {
             type: 'geojson',
-            data: geojson,
+            data: villaGeoJSON,
             cluster: true,
             clusterMaxZoom: 14,
             clusterRadius: 50
           });
 
-          // Cluster circles (black)
+          // Cluster circles
           map.addLayer({
             id: 'clusters',
             type: 'circle',
@@ -101,11 +88,11 @@
             filter: ['has', 'point_count'],
             paint: {
               'circle-color': '#000',
-              'circle-radius': 18
+              'circle-radius': 25
             }
           });
 
-          // Cluster text (white numbers)
+          // Cluster count
           map.addLayer({
             id: 'cluster-count',
             type: 'symbol',
@@ -113,70 +100,68 @@
             filter: ['has', 'point_count'],
             layout: {
               'text-field': '{point_count_abbreviated}',
-              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-              'text-size': 12
+              'text-font': ['Arial Unicode MS Bold'],
+              'text-size': 14
             },
             paint: {
               'text-color': '#fff'
             }
           });
 
-          // Unclustered points (individual villas = gold dot)
+          // Unclustered price bubbles
           map.addLayer({
             id: 'unclustered-point',
-            type: 'circle',
+            type: 'symbol',
             source: 'villas',
             filter: ['!', ['has', 'point_count']],
+            layout: {
+              'text-field': ['get', 'price'],
+              'text-font': ['Arial Unicode MS Bold'],
+              'text-size': 14,
+              'text-offset': [0, 0.2],
+              'text-anchor': 'top'
+            },
             paint: {
-              'circle-color': '#FFD700',
-              'circle-radius': 8,
-              'circle-stroke-width': 1,
-              'circle-stroke-color': '#000'
+              'text-color': '#fff'
             }
           });
 
-          // Show popup on villa click
-          map.on('click', 'unclustered-point', e => {
-            const props = e.features[0].properties;
-            const coords = e.features[0].geometry.coordinates;
-
+          // Popups for unclustered points
+          map.on('click', 'unclustered-point', (e) => {
+            const feature = e.features[0];
+            const props = feature.properties;
             const popupHTML = `
               <div class="card">
                 <img src="${props.image}" alt="${props.name}" />
                 <h3>${props.name} | ${props.bedrooms} bedrooms</h3>
                 <p><strong>${props.price}</strong> per night</p>
-                ${props.town ? `<p>Near ${props.town}</p>` : ''}
                 <a class="btn" href="${props.link}" target="_blank" rel="noopener">View Villa</a>
               </div>
             `;
-
-            new mapboxgl.Popup()
-              .setLngLat(coords)
+            new mapboxgl.Popup({ offset: [0, -40] })
+              .setLngLat(feature.geometry.coordinates)
               .setHTML(popupHTML)
               .addTo(map);
           });
 
-          // Zoom into cluster on click
-          map.on('click', 'clusters', e => {
+          // Zoom in on cluster click
+          map.on('click', 'clusters', (e) => {
             const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
             const clusterId = features[0].properties.cluster_id;
             map.getSource('villas').getClusterExpansionZoom(clusterId, (err, zoom) => {
               if (err) return;
-              map.easeTo({
-                center: features[0].geometry.coordinates,
-                zoom
-              });
+              map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom });
             });
           });
 
-          // Change cursor for clusters
           map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
           map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+          map.on('mouseenter', 'unclustered-point', () => map.getCanvas().style.cursor = 'pointer');
+          map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
         });
       })
-      .catch(err => {
-        console.error('Error loading villa data:', err);
-      });
+      .catch(err => console.error('Error loading villa data:', err));
   </script>
 </body>
 </html>
