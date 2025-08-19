@@ -91,7 +91,7 @@
     /* ======================
        Load client-specific JSON
        ====================== */
-    const dataFile = getQueryParam('data') || 'villas.json'; // default to villas.json
+    const dataFile = getQueryParam('data') || 'test.json'; // default to test.json
     fetch(dataFile)
       .then(response => response.json())
       .then(villas => {
