@@ -92,12 +92,22 @@
     }
 
     /* ======================
+       HELPER: Normalize coords
+       ====================== */
+    function normalizeCoords(coords) {
+      if (Array.isArray(coords)) return coords;
+      try {
+        return JSON.parse(coords); // handle string like "[25.32, 37.46]"
+      } catch {
+        console.error("Invalid coords format:", coords);
+        return null;
+      }
+    }
+
+    /* ======================
        Load client-specific JSON from GitHub
        ====================== */
-    // Default raw URL for test JSON
     const defaultDataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/refs/heads/main/test.json';
-
-    // Use query param if provided
     const dataFile = getQueryParam('data') || defaultDataFile;
 
     fetch(dataFile)
@@ -109,6 +119,9 @@
         const bounds = new mapboxgl.LngLatBounds();
 
         villas.forEach(villa => {
+          const coords = normalizeCoords(villa.coords);
+          if (!coords) return; // skip if invalid
+
           const el = document.createElement('div');
           el.className = 'luxury-marker'; // use luxury dot marker
           // el.className = 'price-marker'; // uncomment to use price bubble markers
@@ -127,11 +140,11 @@
           const popup = new mapboxgl.Popup({ offset: [0, -40] }).setHTML(popupHTML);
 
           new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat(villa.coords)
+            .setLngLat(coords)
             .setPopup(popup)
             .addTo(map);
 
-          bounds.extend(villa.coords);
+          bounds.extend(coords);
         });
 
         if (!bounds.isEmpty()) {
