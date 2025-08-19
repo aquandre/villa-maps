@@ -13,6 +13,30 @@
     html, body { height: 100%; margin: 0; }
     #map { height: 100%; width: 100%; }
 
+    /* Price bubble marker */
+    .price-marker {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.25);
+      font: 600 13px/1.1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: #111;
+      letter-spacing: 0.2px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transform: translateY(-4px);
+    }
+    .price-marker:hover {
+      background: #111;
+      color: #fff;
+    }
+
+    /* Cluster style via Mapbox layer */
     .mapboxgl-popup-content {
       background: black;
       color: white;
@@ -33,7 +57,7 @@
   <div id="map"></div>
 
   <script>
-    mapboxgl.accessToken = 'pk.eyJ1IjoiYXF1YW5kcmUiLCJhIjoiY21lZnRoN3U5MHRjeTJsc2FuOGVzbXJyeiJ9.6BdkovM7dUalGQblQZVyCg';
+    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
 
     const map = new mapboxgl.Map({
       container: 'map',
@@ -43,7 +67,7 @@
     });
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }));
 
-    // JSON file hosted on GitHub
+    // JSON file URL
     const dataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/main/test.json';
 
     fetch(dataFile)
@@ -52,11 +76,11 @@
         return response.json();
       })
       .then(villas => {
-        // Convert to GeoJSON
-        const villaGeoJSON = {
-          type: 'FeatureCollection',
+        // Transform villas into GeoJSON
+        const geojson = {
+          type: "FeatureCollection",
           features: villas.map(villa => ({
-            type: 'Feature',
+            type: "Feature",
             properties: {
               name: villa.name,
               bedrooms: villa.bedrooms,
@@ -65,101 +89,89 @@
               link: villa.link
             },
             geometry: {
-              type: 'Point',
-              coordinates: villa.coords // array of [lng, lat]
+              type: "Point",
+              coordinates: villa.coords
             }
           }))
         };
 
-        map.on('load', () => {
-          map.addSource('villas', {
-            type: 'geojson',
-            data: villaGeoJSON,
-            cluster: true,
-            clusterMaxZoom: 14,
-            clusterRadius: 50
-          });
-
-          // Cluster circles
-          map.addLayer({
-            id: 'clusters',
-            type: 'circle',
-            source: 'villas',
-            filter: ['has', 'point_count'],
-            paint: {
-              'circle-color': '#000',
-              'circle-radius': 25
-            }
-          });
-
-          // Cluster count
-          map.addLayer({
-            id: 'cluster-count',
-            type: 'symbol',
-            source: 'villas',
-            filter: ['has', 'point_count'],
-            layout: {
-              'text-field': '{point_count_abbreviated}',
-              'text-font': ['Arial Unicode MS Bold'],
-              'text-size': 14
-            },
-            paint: {
-              'text-color': '#fff'
-            }
-          });
-
-          // Unclustered price bubbles
-          map.addLayer({
-            id: 'unclustered-point',
-            type: 'symbol',
-            source: 'villas',
-            filter: ['!', ['has', 'point_count']],
-            layout: {
-              'text-field': ['get', 'price'],
-              'text-font': ['Arial Unicode MS Bold'],
-              'text-size': 14,
-              'text-offset': [0, 0.2],
-              'text-anchor': 'top'
-            },
-            paint: {
-              'text-color': '#fff'
-            }
-          });
-
-          // Popups for unclustered points
-          map.on('click', 'unclustered-point', (e) => {
-            const feature = e.features[0];
-            const props = feature.properties;
-            const popupHTML = `
-              <div class="card">
-                <img src="${props.image}" alt="${props.name}" />
-                <h3>${props.name} | ${props.bedrooms} bedrooms</h3>
-                <p><strong>${props.price}</strong> per night</p>
-                <a class="btn" href="${props.link}" target="_blank" rel="noopener">View Villa</a>
-              </div>
-            `;
-            new mapboxgl.Popup({ offset: [0, -40] })
-              .setLngLat(feature.geometry.coordinates)
-              .setHTML(popupHTML)
-              .addTo(map);
-          });
-
-          // Zoom in on cluster click
-          map.on('click', 'clusters', (e) => {
-            const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-            const clusterId = features[0].properties.cluster_id;
-            map.getSource('villas').getClusterExpansionZoom(clusterId, (err, zoom) => {
-              if (err) return;
-              map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom });
-            });
-          });
-
-          map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
-          map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
-
-          map.on('mouseenter', 'unclustered-point', () => map.getCanvas().style.cursor = 'pointer');
-          map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
+        // Add as a source with clustering
+        map.addSource('villas', {
+          type: 'geojson',
+          data: geojson,
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50
         });
+
+        // Cluster circles
+        map.addLayer({
+          id: 'clusters',
+          type: 'circle',
+          source: 'villas',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#000',
+            'circle-radius': 20
+          }
+        });
+
+        // Cluster count labels
+        map.addLayer({
+          id: 'cluster-count',
+          type: 'symbol',
+          source: 'villas',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+            'text-size': 14
+          },
+          paint: {
+            'text-color': '#fff'
+          }
+        });
+
+        // Individual villa price bubbles
+        villas.forEach(villa => {
+          const el = document.createElement('div');
+          el.className = 'price-marker';
+          el.textContent = villa.price;
+
+          const popupHTML = `
+            <div class="card">
+              <img src="${villa.image}" alt="${villa.name}" />
+              <h3>${villa.name} | ${villa.bedrooms} bedrooms</h3>
+              <p><strong>${villa.price}</strong> per night</p>
+              <a class="btn" href="${villa.link}" target="_blank" rel="noopener">View Villa</a>
+            </div>
+          `;
+          const popup = new mapboxgl.Popup({ offset: [0, -40] }).setHTML(popupHTML);
+
+          new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+            .setLngLat(villa.coords)
+            .setPopup(popup)
+            .addTo(map);
+        });
+
+        // Zoom to fit all villas
+        const bounds = new mapboxgl.LngLatBounds();
+        villas.forEach(v => bounds.extend(v.coords));
+        if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
+
+        // Zoom into cluster on click
+        map.on('click', 'clusters', (e) => {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+          const clusterId = features[0].properties.cluster_id;
+          map.getSource('villas').getClusterExpansionZoom(clusterId, (err, zoom) => {
+            if (err) return;
+            map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom });
+          });
+        });
+
+        // Change cursor on hover
+        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
       })
       .catch(err => console.error('Error loading villa data:', err));
   </script>
