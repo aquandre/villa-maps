@@ -5,7 +5,7 @@
    "price": "€2.000",
    "image": "https://api.aqualivingvillas.com/uploads/properties/the-g-house/gallery/large/the-g-house-4.jpg",
    "link": "https://www.aqualivingvillas.com/vacation-rentals/mykonos/the-g-house",
-   "coords": "[25.323824, 37.467993]"
+   "coords": [25.323824, 37.467993]
  },
  {
    "name": "Medusa",
@@ -13,7 +13,7 @@
    "price": "€7.500",
    "image": "https://api.aqualivingvillas.com/uploads/properties/medusa/gallery/large/medusa-2.jpg",
    "link": "https://www.aqualivingvillas.com/vacation-rentals/mykonos/medusa",
-   "coords": "[25.324357, 37.471160]"
+   "coords": [25.324357, 37.471160]
  },
  {
    "name": "Livadi Mansion",
@@ -21,6 +21,6 @@
    "price": "€15.000",
    "image": "https://api.aqualivingvillas.com/uploads/properties/livadi-mansion/gallery/large/livadi-mansion-16.jpg",
    "link": "https://www.aqualivingvillas.com/vacation-rentals/mykonos/livadi-mansion",
-   "coords": "[25.411634, 37.432880]"
+   "coords": [25.411634, 37.432880]
  }
 ]
