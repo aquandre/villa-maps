@@ -1,0 +1,18 @@
+[
+ {
+   "name": "Santa Maria Beach House",
+   "bedrooms": 5,
+   "price": "€1.500",
+   "image": "https://api.aqualivingvillas.com/uploads/properties/santa-maria-beach-house/gallery/large/santa-maria-beach-house-2.jpg",
+   "link": "https://www.aqualivingvillas.com/vacation-rentals/paros/santa-maria-beach-house",
+   "coords": [25.283412, 37.139049]
+ },
+ {
+   "name": "Casita Soros",
+   "bedrooms": 4,
+   "price": "€2.300",
+   "image": "https://api.aqualivingvillas.com/uploads/properties/casita-soros/gallery/large/casita-soros-12.jpg",
+   "link": "https://www.aqualivingvillas.com/vacation-rentals/antiparos/casita-soros",
+   "coords": [25.056986, 36.975610]
+ }
+]
