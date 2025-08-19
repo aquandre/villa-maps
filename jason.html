@@ -44,20 +44,11 @@
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }));
 
     // ======================
-    // Helper: get query param
-    // ======================
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
-
-    // ======================
-    // Load villa data (JSON from GitHub)
+    // Load villa data
     // ======================
     const defaultDataFile = 'https://raw.githubusercontent.com/aquandre/villa-maps/refs/heads/main/test.json';
-    const dataFile = getQueryParam('data') || defaultDataFile;
 
-    fetch(dataFile)
+    fetch(defaultDataFile)
       .then(response => {
         if (!response.ok) throw new Error('Network response was not ok');
         return response.json();
@@ -68,10 +59,7 @@
           type: 'FeatureCollection',
           features: villas.map(villa => ({
             type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: villa.coords
-            },
+            geometry: { type: 'Point', coordinates: villa.coords.map(Number) },
             properties: {
               name: villa.name,
               bedrooms: villa.bedrooms,
@@ -84,7 +72,7 @@
         };
 
         map.on('load', () => {
-          // Add source with clustering enabled
+          // Add source with clustering
           map.addSource('villas', {
             type: 'geojson',
             data: geojson,
@@ -105,7 +93,7 @@
             }
           });
 
-          // Cluster text (white numbers)
+          // Cluster labels (white)
           map.addLayer({
             id: 'cluster-count',
             type: 'symbol',
@@ -116,12 +104,10 @@
               'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
               'text-size': 12
             },
-            paint: {
-              'text-color': '#fff'
-            }
+            paint: { 'text-color': '#fff' }
           });
 
-          // Unclustered points (individual villas = black dot)
+          // Individual villas (black dots)
           map.addLayer({
             id: 'unclustered-point',
             type: 'circle',
@@ -131,20 +117,14 @@
               'circle-color': '#000',
               'circle-radius': 8,
               'circle-stroke-width': 1,
-              'circle-stroke-color': '#fff'
+              'circle-stroke-color': '#000'
             }
           });
 
-          // Fit map to all villas
-          const bounds = new mapboxgl.LngLatBounds();
-          geojson.features.forEach(f => bounds.extend(f.geometry.coordinates));
-          if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 80 });
-
-          // Show popup on villa click
+          // Popup on villa click
           map.on('click', 'unclustered-point', e => {
             const props = e.features[0].properties;
             const coords = e.features[0].geometry.coordinates;
-
             const popupHTML = `
               <div class="card">
                 <img src="${props.image}" alt="${props.name}" />
@@ -154,11 +134,7 @@
                 <a class="btn" href="${props.link}" target="_blank" rel="noopener">View Villa</a>
               </div>
             `;
-
-            new mapboxgl.Popup()
-              .setLngLat(coords)
-              .setHTML(popupHTML)
-              .addTo(map);
+            new mapboxgl.Popup().setLngLat(coords).setHTML(popupHTML).addTo(map);
           });
 
           // Zoom into cluster on click
@@ -174,14 +150,17 @@
             });
           });
 
-          // Change cursor for clusters
+          // Change cursor on hover
           map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
           map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+          // Fit map to all villas
+          const bounds = new mapboxgl.LngLatBounds();
+          geojson.features.forEach(f => bounds.extend(f.geometry.coordinates));
+          if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 80 });
         });
       })
-      .catch(err => {
-        console.error('Error loading villa data:', err);
-      });
+      .catch(err => console.error('Error loading villa data:', err));
   </script>
 </body>
 </html>
